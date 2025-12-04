@@ -5,7 +5,15 @@
 \title{Computes the k-rank approximation to A_norm and adjusts it according to the
 error distribution learned from the negative values.}
 \usage{
-alra(A_norm, k = 0, q = 10, quantile.prob = 0.001, use.mkl = F, mkl.seed = -1)
+alra(
+  A_norm,
+  k = 0L,
+  q = 10L,
+  quantile.prob = 0.001,
+  use.mkl = FALSE,
+  mkl.seed = -1L,
+  ...
+)
 }
 \arguments{
 \item{A_norm}{The log-transformed expression matrix of cells (rows) vs. genes (columns)}
@@ -14,6 +22,8 @@ alra(A_norm, k = 0, q = 10, quantile.prob = 0.001, use.mkl = F, mkl.seed = -1)
 
 \item{q}{the number of additional power iterations in randomized SVD}
 
+\item{quantile.prob}{quantile probaility, default is 0.001}
+
 \item{use.mkl}{Use the Intel MKL based implementation of SVD. Needs to be
 installed from https://github.com/KlugerLab/rpca-mkl.}
 
@@ -21,6 +31,8 @@ installed from https://github.com/KlugerLab/rpca-mkl.}
 generator for the Intel MKL implementation of SVD. Any number <0 will
 use the current timestamp. If use.mkl=F, set the seed using
 set.seed() function as usual.}
+
+\item{...}{additional parameters like verbose}
 }
 \value{
 A list with three items
@@ -40,6 +52,9 @@ error distribution learned from the negative values.
 \examples{
 A_norm <- normalize_data(b_nk_example)
 result.completed <- alra(A_norm,15)
-A_norm_rank15 <- result.completed[[1]]     # The low rank approximation for reference purposes...not suggested for matrix completion
-A_norm_rank15_cor <- result.completed[[3]] # The actual adjusted, completed matrix
+# The low rank approximation for reference purposes...not suggested for matrix completion
+A_norm_rank15 <- result.completed[[1]]
+
+# The actual adjusted, completed matrix
+A_norm_rank15_cor <- result.completed[[3]]
 }

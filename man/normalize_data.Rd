@@ -4,7 +4,12 @@
 \alias{normalize_data}
 \title{Simple convenience function to library and log normalize a matrix}
 \usage{
-normalize_data(A)
+normalize_data(A, verbose = TRUE)
+}
+\arguments{
+\item{A}{A matrix of gene expression counts (genes x cells)}
+
+\item{verbose}{Logical indicating whether to print progress messages}
 }
 \description{
 Simple convenience function to library and log normalize a matrix
