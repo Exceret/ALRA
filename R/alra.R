@@ -44,9 +44,10 @@ normalize_data <- function(A, verbose = TRUE) {
         }
     }
 
-    A_norm <- sweep(A, 1, totalUMIPerCell, '/')
-    A_norm <- A_norm * 10E3
-    A_norm <- log(A_norm + 1)
+    # A_norm <- sweep(A, 1, totalUMIPerCell, '/')
+    # A_norm <- A_norm * 10E3
+    # A_norm <- log(A_norm + 1)
+    A_norm <- log((Matrix::Diagonal(x = 1 / totalUMIPerCell) %*% A) * 1e4 + 1L)
 }
 
 #' Heuristic for choosing rank k for the low rank approximation based on
@@ -171,13 +172,11 @@ alra <- function(
 
     if (verbose) {
         ts_cli$cli_alert_info(sprintf(
-            "Read matrix with {.val %d} cells and {.val %d} genes\n",
-            nrow(A_norm),
-            ncol(A_norm)
+            "Read matrix with {.val {nrow(A_norm)}} cells and {.val {ncol(A_norm)}} genes"
         ))
     }
 
-    if (!inherits(A_norm, "matrix")) {
+    if (!inherits(A_norm, "matrix") && !inherits(A_norm, "Matrix")) {
         cli::cli_abort(sprintf(
             "{.arg A_norm} is of class {.type %s}, but it should be of class matrix. Did you forget to run as.matrix()?",
             class(A_norm)
@@ -188,7 +187,7 @@ alra <- function(
         k_choice <- choose_k(A_norm)
         k <- k_choice$k
         if (verbose) {
-            ts_cli$cli_alert_info(sprintf("Chose k = {.val %d}", k))
+            ts_cli$cli_alert_info("Chose k = {.val {k}}")
         }
     }
 
@@ -198,7 +197,7 @@ alra <- function(
     originally_nonzero <- A_norm > 0
 
     if (verbose) {
-        ts_cli$cli_alert_info("Randomized SVD\n")
+        ts_cli$cli_alert_info("Randomized SVD")
     }
 
     if (!use.mkl) {
@@ -256,10 +255,9 @@ alra <- function(
         !(sigma_1 == 0)
 
     if (verbose) {
-        ts_cli$cli_alert_info(sprintf(
-            "Scaling all except for {.val %d} columns\n",
-            sum(!toscale)
-        ))
+        ts_cli$cli_alert_info(
+            "Scaling all except for {.val {sum(!toscale)}} columns"
+        )
     }
 
     sigma_1_2 <- sigma_2 / sigma_1
@@ -288,34 +286,58 @@ alra <- function(
 
     if (verbose) {
         ts_cli$cli_alert_info(sprintf(
-            "{.val %.2f%%} of the values became negative in the scaling process and were set to zero",
-            100 * sum(lt0) / (nrow(A_norm) * ncol(A_norm))
+            "{.val {100 * sum(lt0) / (nrow(A_norm) * ncol(A_norm))}}% of the values became negative in the scaling process and were set to zero"
         ))
     }
 
-    A_norm_rank_k_cor_sc[
-        originally_nonzero & A_norm_rank_k_cor_sc == 0
-    ] <- A_norm[originally_nonzero & A_norm_rank_k_cor_sc == 0]
+    # A_norm_rank_k_cor_sc[
+    #     originally_nonzero & A_norm_rank_k_cor_sc == 0
+    # ] <- A_norm[originally_nonzero & A_norm_rank_k_cor_sc == 0]
 
-    colnames(A_norm_rank_k_cor) <- colnames(A_norm)
-    colnames(A_norm_rank_k_cor_sc) <- colnames(A_norm)
-    colnames(A_norm_rank_k) <- colnames(A_norm)
+    nnz_orig <- which(as.matrix(originally_nonzero), arr.ind = TRUE)
+
+    vals_at_orig_nnz <- A_norm_rank_k_cor_sc[nnz_orig]
+    target_idx <- nnz_orig[vals_at_orig_nnz == 0, , drop = FALSE]
+
+    if (nrow(target_idx) > 0) {
+        A_norm_rank_k_cor_sc[target_idx] <- A_norm[target_idx]
+    }
+
+    col_names <- colnames(A_norm)
+    colnames(A_norm_rank_k_cor) <- col_names
+    colnames(A_norm_rank_k_cor_sc) <- col_names
+    colnames(A_norm_rank_k) <- col_names
+    row_names <- rownames(A_norm)
+    rownames(A_norm_rank_k_cor) <- row_names
+    rownames(A_norm_rank_k_cor_sc) <- row_names
+    rownames(A_norm_rank_k) <- row_names
 
     original_nz <- sum(A_norm > 0) / (nrow(A_norm) * ncol(A_norm))
     completed_nz <- sum(A_norm_rank_k_cor_sc > 0) /
         (nrow(A_norm) * ncol(A_norm))
 
     if (verbose) {
-        ts_cli$cli_alert_info(sprintf(
-            "The matrix went from {.val %.2f%%} nonzero to {.val %.2f%%} nonzero",
-            100 * original_nz,
-            100 * completed_nz
-        ))
+        ts_cli$cli_alert_info(
+            "The matrix went from {.val {round(100 * original_nz, 3)}}% nonzero to {.val {round(100 * completed_nz, 3)}}% nonzero"
+        )
     }
 
+    return_Matrix <- inherits(A_norm, "Matrix")
     list(
-        A_norm_rank_k = A_norm_rank_k,
-        A_norm_rank_k_cor = A_norm_rank_k_cor,
-        A_norm_rank_k_cor_sc = A_norm_rank_k_cor_sc
+        A_norm_rank_k = if (return_Matrix) {
+            Matrix::Matrix(A_norm_rank_k)
+        } else {
+            A_norm_rank_k
+        },
+        A_norm_rank_k_cor = if (return_Matrix) {
+            Matrix::Matrix(A_norm_rank_k_cor)
+        } else {
+            A_norm_rank_k_cor
+        },
+        A_norm_rank_k_cor_sc = if (return_Matrix) {
+            Matrix::Matrix(A_norm_rank_k_cor_sc)
+        } else {
+            A_norm_rank_k_cor_sc
+        }
     )
 }
