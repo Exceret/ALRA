@@ -14,7 +14,7 @@ randomized.svd <- function(A, K, q, method = 'rsvd', mkl.seed = -1) {
         )
         out$u <- fastPCAOut$U
         out$v <- fastPCAOut$V
-        out$d <- diag(fastPCAOut$S)
+        out$d <- Matrix::diag(fastPCAOut$S)
     } else {
         stop('Method not recognized')
     }
@@ -33,12 +33,12 @@ randomized.svd <- function(A, K, q, method = 'rsvd', mkl.seed = -1) {
 normalize_data <- function(A, verbose = TRUE) {
     totalUMIPerCell <- SigBridgeRUtils::rowSums3(A)
     if (any(totalUMIPerCell == 0)) {
-        toRemove <- which(totalUMIPerCell == 0)
+        toRemove <- Matrix::which(totalUMIPerCell == 0)
         A <- A[-toRemove, ]
         totalUMIPerCell <- totalUMIPerCell[-toRemove]
         if (verbose) {
             ts_cli$cli_alert_info(sprintf(
-                "Removed {.val %d} cells which did not express any genes",
+                "Removed %d cells which did not express any genes",
                 length(toRemove)
             ))
         }
@@ -118,7 +118,7 @@ choose_k <- function(
 
     num_of_sds <- (diffs - mu) / sigma
 
-    k <- max(which(num_of_sds > thresh))
+    k <- max(Matrix::which(num_of_sds > thresh))
 
     list(k = k, num_of_sds = num_of_sds, d = rsvd_out$d)
 }
@@ -264,17 +264,21 @@ alra <- function(
     toadd <- -1 * mu_1 * sigma_2 / sigma_1 + mu_2
 
     A_norm_rank_k_temp <- A_norm_rank_k_cor[, toscale]
-    A_norm_rank_k_temp <- sweep(
-        A_norm_rank_k_temp,
-        2,
-        sigma_1_2[toscale],
-        FUN = "*"
-    )
-    A_norm_rank_k_temp <- sweep(
-        A_norm_rank_k_temp,
-        2,
-        toadd[toscale],
-        FUN = "+"
+    # A_norm_rank_k_temp <- sweep(
+    #     A_norm_rank_k_temp,
+    #     2,
+    #     sigma_1_2[toscale],
+    #     FUN = "*"
+    # )
+    # A_norm_rank_k_temp <- sweep(
+    #     A_norm_rank_k_temp,
+    #     2,
+    #     toadd[toscale],
+    #     FUN = "+"
+    # )
+
+    A_norm_rank_k_temp <- Matrix::t(
+        Matrix::t(A_norm_rank_k_temp) * sigma_1_2[toscale] + toadd[toscale]
     )
 
     A_norm_rank_k_cor_sc <- A_norm_rank_k_cor
@@ -285,16 +289,16 @@ alra <- function(
     A_norm_rank_k_cor_sc[lt0] <- 0
 
     if (verbose) {
-        ts_cli$cli_alert_info(sprintf(
-            "{.val {100 * sum(lt0) / (nrow(A_norm) * ncol(A_norm))}}% of the values became negative in the scaling process and were set to zero"
-        ))
+        ts_cli$cli_alert_info(
+            "{.val {round(100 * sum(lt0) / (nrow(A_norm) * ncol(A_norm)), 3)}}% of the values became negative in the scaling process and were set to zero"
+        )
     }
 
     # A_norm_rank_k_cor_sc[
     #     originally_nonzero & A_norm_rank_k_cor_sc == 0
     # ] <- A_norm[originally_nonzero & A_norm_rank_k_cor_sc == 0]
 
-    nnz_orig <- which(as.matrix(originally_nonzero), arr.ind = TRUE)
+    nnz_orig <- Matrix::which(originally_nonzero, arr.ind = TRUE)
 
     vals_at_orig_nnz <- A_norm_rank_k_cor_sc[nnz_orig]
     target_idx <- nnz_orig[vals_at_orig_nnz == 0, , drop = FALSE]
